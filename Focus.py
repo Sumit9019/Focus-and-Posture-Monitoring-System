@@ -36,16 +36,12 @@ def eye_aspect_ratio(eye):
 def face_orientation(nose_point, chin_point, left_point, right_point):
     nose_to_left = distance.euclidean(nose_point, left_point)
     nose_to_right = distance.euclidean(nose_point, right_point)
-    if abs(nose_to_left - nose_to_right) > 50:  # Threshold to detect face rotation
-        return True
-    return False
+    return abs(nose_to_left - nose_to_right) > 50  # Threshold to detect face rotation
 
 # Function to check if the driver is slouching or lying down
 def check_posture(nose_point, chin_point):
     vertical_diff = abs(nose_point[1] - chin_point[1])
-    if vertical_diff > 80:  # Threshold to detect improper posture
-        return True
-    return False
+    return vertical_diff > 80  # Threshold to detect improper posture
 
 # Drowsiness detection thresholds
 thresh = 0.25
@@ -53,7 +49,11 @@ frame_check = 20
 
 # Load facial landmarks and initialize the detector
 detect = dlib.get_frontal_face_detector()
-predict = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+try:
+    predict = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+except Exception as e:
+    print(f"Error loading shape predictor: {e}")
+    exit()
 
 # Facial landmarks for eyes, nose, and posture detection
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_68_IDXS["left_eye"]
@@ -115,6 +115,9 @@ while True:
             cv2.putText(frame, "****************ALERT! IMPROPER POSTURE!****************", (10, 90),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             play_warning("Warning! You are not sitting properly. Please sit straight.")
+
+        # Draw a rectangle around the face
+        cv2.rectangle(frame, (subject.left(), subject.top()), (subject.right(), subject.bottom()), (0, 255, 0), 2)
 
     # Display the frame
     cv2.imshow("Frame", frame)
