@@ -1,4 +1,4 @@
-# from scipy.spatial import distance
+
 # from imutils import face_utils
 # import imutils
 # import dlib
