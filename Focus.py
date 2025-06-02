@@ -33,6 +33,16 @@ def eye_aspect_ratio(eye):
     ear = (A + B) / (2.0 * C)
     return ear
 
+# Function to calculate mouth aspect ratio (MAR) for yawning detection
+def mouth_aspect_ratio(mouth):
+    # Vertical distances
+    A = distance.euclidean(mouth[13], mouth[19])  # 51, 59
+    B = distance.euclidean(mouth[15], mouth[17])  # 53, 57
+    # Horizontal distance
+    C = distance.euclidean(mouth[12], mouth[16])  # 49, 55
+    mar = (A + B) / (2.0 * C)
+    return mar
+
 # Function to check face orientation based on landmarks
 def face_orientation(nose_point, chin_point, left_point, right_point):
     nose_to_left = distance.euclidean(nose_point, left_point)
@@ -48,26 +58,14 @@ def check_posture(nose_point, chin_point):
         return True
     return False
 
-# Function to detect a smartphone based on color (this can be improved with more advanced detection techniques)
-def detect_smartphone(frame):
-    # Convert the frame to HSV color space
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-    # Define the range of colors for detecting a smartphone (adjust these values as needed)
-    lower_color = np.array([100, 100, 100])  # Example lower bound
-    upper_color = np.array([140, 255, 255])  # Example upper bound
-
-    # Create a mask for the specified color range
-    mask = cv2.inRange(hsv, lower_color, upper_color)
-
-    # Check if there are any non-zero pixels in the mask
-    if cv2.countNonZero(mask) > 500:  # Adjust the threshold as needed
-        return True  # Smartphone detected
-    return False  # No smartphone detected
-
 # Drowsiness detection thresholds
 thresh = 0.25
 frame_check = 20
+
+# Yawning detection thresholds
+mar_thresh = 0.7  # Adjust as needed
+mar_frame_check = 15
+mar_flag = 0
 
 # Load facial landmarks and initialize the detector
 detect = dlib.get_frontal_face_detector()
@@ -82,6 +80,11 @@ predict = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 cap = cv2.VideoCapture(0)
 flag = 0
+# Yawning detection variables
+YAWN_THRESH = 0.7  # Adjust as needed
+YAWN_CONSEC_FRAMES = 15
+yawn_counter = 0
+
 while True:
     ret, frame = cap.read()
     frame = imutils.resize(frame, width=450)
@@ -106,11 +109,10 @@ while True:
         rightEAR = eye_aspect_ratio(rightEye)
         ear = (leftEAR + rightEAR) / 2.0
 
-        # Draw contours around the eyes and mouth
-        leftEyeHull = cv2.convexHull(leftEye)
-        rightEyeHull = cv2.convexHull(rightEye)
-        cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
-        cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
+        # Calculate MAR for yawning detection
+        mar = mouth_aspect_ratio(mouth)
+        mouthHull = cv2.convexHull(mouth)
+        cv2.drawContours(frame, [mouthHull], -1, (255, 0, 0), 1)
 
         # Drowsiness detection
         if ear < thresh:
@@ -124,6 +126,16 @@ while True:
         else:
             flag = 0
 
+        # Yawning detection
+        if mar > YAWN_THRESH:
+            yawn_counter += 1
+            if yawn_counter >= YAWN_CONSEC_FRAMES:
+                cv2.putText(frame, "****************YAWNING DETECTED!****************", (10, 150),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                play_warning("Warning! You are yawning. Please stay alert.")
+        else:
+            yawn_counter = 0
+
         # Face rotation detection
         if face_orientation(nose, chin, left_face, right_face):
             cv2.putText(frame, "****************ALERT! FACE ROTATED!****************", (10, 60),
@@ -134,13 +146,13 @@ while True:
         if check_posture(nose, chin):
             cv2.putText(frame, "****************ALERT! IMPROPER POSTURE!****************", (10, 90),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-            play_warning("Warning! You are not sitting properly. Please sit straight.")
+            play_warning("Warning! You are yawning. Please stay alert.")
 
         # Smartphone detection
-        if detect_smartphone(frame):
-            cv2.putText(frame, "****************ALERT! SMARTPHONE DETECTED!****************", (10, 120),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-            play_warning("Warning! Smartphone detected. Please focus on the road.")
+        # if detect_smartphone(frame):
+        #     cv2.putText(frame, "****************ALERT! SMARTPHONE DETECTED!****************", (10, 120),
+        #                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        #     play_warning("Warning! Smartphone detected. Please focus on the road.")
 
     # Display the frame
     cv2.imshow("Frame", frame)
